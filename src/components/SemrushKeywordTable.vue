@@ -32,15 +32,327 @@ const EXPECTED_HEADERS = [
   'Keyword Difficulty Index'
 ]
 
-const SERP_FEATURE_LABELS: Record<number, string> = {
-  0: 'Featured snippet',
-  1: 'Sitelinks',
-  2: 'Reviews',
-  3: 'Video',
-  4: 'People also ask',
-  5: 'Images',
-  6: 'Shopping',
-  7: 'Top stories'
+interface SerpFeatureMeta {
+  name: string
+  linkingToDomain: boolean
+  description: string
+  sortable: boolean
+}
+
+const SERP_FEATURE_META: Record<number, SerpFeatureMeta> = {
+  0: {
+    name: 'Instant answer',
+    linkingToDomain: false,
+    description:
+      'A direct answer to a user query shown at the top of organic results in a bordered box.',
+    sortable: true
+  },
+  1: {
+    name: 'Knowledge panel',
+    linkingToDomain: true,
+    description: 'A right-side block with brief information related to the searched topic.',
+    sortable: true
+  },
+  2: {
+    name: 'Carousel',
+    linkingToDomain: false,
+    description: 'A row of horizontally scrollable images shown near the top of results.',
+    sortable: true
+  },
+  3: {
+    name: 'Local pack',
+    linkingToDomain: true,
+    description: 'A map with three local results for local search queries.',
+    sortable: true
+  },
+  4: {
+    name: 'Top stories',
+    linkingToDomain: true,
+    description: 'Card-style news results, usually up to three items.',
+    sortable: true
+  },
+  5: {
+    name: 'Image pack',
+    linkingToDomain: true,
+    description: 'A collection of images related to the search query.',
+    sortable: true
+  },
+  6: {
+    name: 'Sitelinks',
+    linkingToDomain: true,
+    description: 'Extra links to pages on a site, usually under a main organic result.',
+    sortable: true
+  },
+  7: {
+    name: 'Reviews',
+    linkingToDomain: true,
+    description: 'Organic results with star ratings and review counts.',
+    sortable: true
+  },
+  8: {
+    name: 'Tweet',
+    linkingToDomain: false,
+    description: 'A card with recent tweets related to the query.',
+    sortable: true
+  },
+  9: {
+    name: 'Video',
+    linkingToDomain: true,
+    description: 'Video results with thumbnails among organic listings.',
+    sortable: true
+  },
+  10: {
+    name: 'Featured video',
+    linkingToDomain: true,
+    description: 'A prominent video result shown above organic results.',
+    sortable: true
+  },
+  11: {
+    name: 'Featured Snippet',
+    linkingToDomain: true,
+    description: 'A short answer block sourced from a third-party website.',
+    sortable: true
+  },
+  12: {
+    name: 'AMP',
+    linkingToDomain: false,
+    description: 'Mobile-friendly pages; Google does not visually separate them in results.',
+    sortable: true
+  },
+  13: {
+    name: 'Image',
+    linkingToDomain: true,
+    description: 'An image result with thumbnail among organic results.',
+    sortable: true
+  },
+  14: {
+    name: 'Ads top',
+    linkingToDomain: false,
+    description: 'A series of ads shown at the top of the first results page.',
+    sortable: true
+  },
+  15: {
+    name: 'Ads bottom',
+    linkingToDomain: false,
+    description: 'A series of ads shown at the bottom of the first results page.',
+    sortable: true
+  },
+  16: {
+    name: 'Shopping ads',
+    linkingToDomain: false,
+    description: 'Paid shopping results with product image, price, and site name.',
+    sortable: true
+  },
+  17: {
+    name: 'Hotels Pack',
+    linkingToDomain: false,
+    description: 'A block of hotels with prices, ratings, and availability controls.',
+    sortable: true
+  },
+  18: {
+    name: 'Jobs search',
+    linkingToDomain: false,
+    description: 'A block of job listings with company, source, and title details.',
+    sortable: true
+  },
+  19: {
+    name: 'Featured images',
+    linkingToDomain: false,
+    description: 'A top-of-SERP image collection, typically on mobile devices.',
+    sortable: true
+  },
+  20: {
+    name: 'Video Carousel',
+    linkingToDomain: true,
+    description: 'A horizontally scrollable row of videos among search results.',
+    sortable: true
+  },
+  21: {
+    name: 'People also ask',
+    linkingToDomain: true,
+    description: 'Expandable related questions shown between organic results.',
+    sortable: true
+  },
+  22: {
+    name: 'FAQ',
+    linkingToDomain: true,
+    description: 'Question-and-answer expansions attached to an organic result.',
+    sortable: true
+  },
+  23: {
+    name: 'Flights',
+    linkingToDomain: false,
+    description: 'A flight information block sourced from Google Flights.',
+    sortable: true
+  },
+  24: {
+    name: 'Find results on',
+    linkingToDomain: true,
+    description: 'A domain block shown above a map.',
+    sortable: true
+  },
+  25: {
+    name: 'Recipes',
+    linkingToDomain: true,
+    description: 'A recipe block shown at the top of search results.',
+    sortable: true
+  },
+  26: {
+    name: 'Related Topics',
+    linkingToDomain: false,
+    description: 'A list of topics related to the query.',
+    sortable: true
+  },
+  27: {
+    name: 'Twitter carousel',
+    linkingToDomain: true,
+    description: 'A carousel of tweets among organic results.',
+    sortable: true
+  },
+  28: {
+    name: 'Indented',
+    linkingToDomain: true,
+    description: 'A list of related pages from the highest organic result.',
+    sortable: true
+  },
+  29: {
+    name: 'News',
+    linkingToDomain: true,
+    description: 'Trending news listings among organic results.',
+    sortable: true
+  },
+  30: {
+    name: 'Address Pack',
+    linkingToDomain: false,
+    description: 'A map block with popular places at the top of the results page.',
+    sortable: true
+  },
+  31: {
+    name: 'Application',
+    linkingToDomain: true,
+    description: 'App Store or Play Store app result, usually on mobile.',
+    sortable: true
+  },
+  32: {
+    name: 'Events',
+    linkingToDomain: false,
+    description: 'A list of relevant events displayed at the top of results.',
+    sortable: true
+  },
+  34: {
+    name: 'Popular products',
+    linkingToDomain: false,
+    description: 'A carousel of reviewed products available for purchase.',
+    sortable: true
+  },
+  35: {
+    name: 'Related products',
+    linkingToDomain: false,
+    description: 'A carousel of related purchasable products.',
+    sortable: true
+  },
+  36: {
+    name: 'Related searches',
+    linkingToDomain: false,
+    description: 'A list of related searches among organic results.',
+    sortable: true
+  },
+  37: {
+    name: 'See results about',
+    linkingToDomain: false,
+    description: 'A list of more precise queries shown at the right side of results.',
+    sortable: true
+  },
+  38: {
+    name: 'Short videos',
+    linkingToDomain: true,
+    description: 'A block of vertical videos, usually on mobile.',
+    sortable: true
+  },
+  39: {
+    name: 'Web stories',
+    linkingToDomain: true,
+    description: 'A block of vertical stories, usually on mobile.',
+    sortable: true
+  },
+  40: {
+    name: 'Application list',
+    linkingToDomain: true,
+    description: 'A list of apps among organic results, usually on mobile.',
+    sortable: true
+  },
+  41: {
+    name: 'Buying guide',
+    linkingToDomain: true,
+    description: 'A block with product feature questions and buying guidance.',
+    sortable: true
+  },
+  42: {
+    name: 'Organic carousel',
+    linkingToDomain: true,
+    description: 'A top-of-SERP carousel containing organic results.',
+    sortable: true
+  },
+  43: {
+    name: 'Things to know',
+    linkingToDomain: true,
+    description: 'A block of common related questions.',
+    sortable: true
+  },
+  44: {
+    name: 'Datasets',
+    linkingToDomain: true,
+    description: 'A list of scientific datasets.',
+    sortable: true
+  },
+  45: {
+    name: 'Discussions and forums',
+    linkingToDomain: true,
+    description: 'A block of related forum discussions.',
+    sortable: true
+  },
+  46: {
+    name: 'Explore brands',
+    linkingToDomain: true,
+    description: 'A list of related brands.',
+    sortable: true
+  },
+  47: {
+    name: 'Questions and answers',
+    linkingToDomain: true,
+    description: 'A carousel with related questions and answers.',
+    sortable: true
+  },
+  48: {
+    name: 'Popular stores',
+    linkingToDomain: true,
+    description: 'A list of popular related stores.',
+    sortable: true
+  },
+  49: {
+    name: 'Refine',
+    linkingToDomain: false,
+    description: 'A block of related search queries with clarifying keywords.',
+    sortable: true
+  },
+  50: {
+    name: 'People also search',
+    linkingToDomain: false,
+    description: 'A carousel of competitor brands and companies.',
+    sortable: true
+  },
+  51: {
+    name: 'Ads middle',
+    linkingToDomain: false,
+    description: 'A series of ads shown in the middle of the first results page.',
+    sortable: true
+  },
+  52: {
+    name: 'AI overview',
+    linkingToDomain: true,
+    description: 'An answer generated by AI.',
+    sortable: true
+  }
 }
 
 const DEMO_DATA = `Keyword;Search Volume;CPC;Competition;Number of Results;Trends;Related Relevance;Keywords SERP Features;Intent;Keyword Difficulty Index
@@ -163,7 +475,7 @@ const featureStats = computed(() => {
     for (const feature of unique) counts.set(feature, (counts.get(feature) ?? 0) + 1)
   }
   return Array.from(counts.entries())
-    .map(([id, count]) => ({ id, count, label: SERP_FEATURE_LABELS[id] ?? `SERP Feature ${id}` }))
+    .map(([id, count]) => ({ id, count, label: SERP_FEATURE_META[id]?.name ?? `SERP Feature ${id}` }))
     .sort((a, b) => b.count - a.count || a.id - b.id)
 })
 
@@ -319,23 +631,35 @@ function intentBadge(code: number): { short: string; title: string; cls: string 
 }
 
 function featureLabel(featureId: number): string {
-  const labels: Record<number, string> = {
-    0: 'FS',
-    1: 'SL',
-    2: 'RV',
-    3: 'VD',
-    4: 'PAA',
-    5: 'IMG',
-    6: 'SHP',
-    7: 'TOP',
-    8: 'MAP',
-    9: 'AD'
-  }
-  return labels[featureId] ?? '*'
+  const name = featureName(featureId)
+  const words = name
+    .split(/[\s-]+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .filter((word) => !['and', 'also', 'to', 'on', 'of', 'the'].includes(word.toLowerCase()))
+
+  if (!words.length) return '*'
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase()
+  return words
+    .slice(0, 3)
+    .map((word) => word[0].toUpperCase())
+    .join('')
 }
 
 function featureName(featureId: number): string {
-  return SERP_FEATURE_LABELS[featureId] ?? `SERP Feature ${featureId}`
+  return SERP_FEATURE_META[featureId]?.name ?? `SERP Feature ${featureId}`
+}
+
+function featureTooltip(featureId: number): string {
+  const feature = SERP_FEATURE_META[featureId]
+  if (!feature) return `Code ${featureId}: SERP Feature ${featureId}`
+  return [
+    `Code: ${featureId}`,
+    `Name: ${feature.name}`,
+    `Linking to domain: ${feature.linkingToDomain ? 'Yes' : 'No'}`,
+    `Sortable: ${feature.sortable ? 'Yes' : 'No'}`,
+    `Description: ${feature.description}`
+  ].join('\n')
 }
 
 function rowSerpVisible(featureIds: number[]): number[] {
@@ -532,7 +856,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     <span
                       v-for="featureId in rowSerpVisible(row.serpFeatures)"
                       :key="`${row.id}-serp-${featureId}`"
-                      :title="featureName(featureId)"
+                      :title="featureTooltip(featureId)"
                     >
                       <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
                         <rect x="1.2" y="1.2" width="15.6" height="15.6" rx="3" />
@@ -571,6 +895,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
             :key="`legend-${feature.id}`"
             class="legend-item"
             :class="{ active: selectedSerpFeatures.has(feature.id) }"
+            :title="featureTooltip(feature.id)"
             @click="toggleFeatureFilter(feature.id)"
           >
             <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
