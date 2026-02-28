@@ -15,4 +15,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    hmr: {
+      host: '192.168.0.145', // your PC IP
+    },
+  },
 })
