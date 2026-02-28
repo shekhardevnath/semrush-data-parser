@@ -4,22 +4,33 @@ import SaveTextModal from './SaveTextModal.vue'
 
 type SortKey = 'keyword' | 'intent' | 'volume' | 'kd' | 'cpc' | 'competition' | 'results'
 type SortDir = 'asc' | 'desc'
+type HeaderName =
+  | 'Keyword'
+  | 'Search Volume'
+  | 'CPC'
+  | 'Competition'
+  | 'Number of Results'
+  | 'Trends'
+  | 'Related Relevance'
+  | 'Keywords SERP Features'
+  | 'Intent'
+  | 'Keyword Difficulty Index'
 
 interface KeywordRow {
   id: number
   keyword: string
-  searchVolume: number
-  cpc: number
-  competition: number
-  numberOfResults: number
+  searchVolume: number | null
+  cpc: number | null
+  competition: number | null
+  numberOfResults: number | null
   trends: number[]
-  relatedRelevance: number
+  relatedRelevance: number | null
   serpFeatures: number[]
   intentCodes: number[]
-  kd: number
+  kd: number | null
 }
 
-const EXPECTED_HEADERS = [
+const EXPECTED_HEADERS: HeaderName[] = [
   'Keyword',
   'Search Volume',
   'CPC',
@@ -370,6 +381,11 @@ function parseNumber(raw: string, label: string, lineNumber: number, isInt = fal
   return parsed
 }
 
+function parseNumberOrNull(raw: string | undefined, label: string, lineNumber: number, isInt = false): number | null {
+  if (raw == null || !raw.trim()) return null
+  return parseNumber(raw, label, lineNumber, isInt)
+}
+
 function parseIntList(raw: string, label: string, lineNumber: number): number[] {
   if (!raw.trim()) return []
   return raw.split(',').map((piece) => {
@@ -388,48 +404,63 @@ function parseFloatList(raw: string, label: string, lineNumber: number): number[
   })
 }
 
-function parseSemrushText(text: string): KeywordRow[] {
+function parseSemrushText(text: string): { rows: KeywordRow[]; availableHeaders: Set<HeaderName> } {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
 
-  if (!lines.length) return []
+  if (!lines.length) return { rows: [], availableHeaders: new Set(EXPECTED_HEADERS) }
 
   const headers = lines[0].split(';').map((item) => item.trim())
-  const headerValid =
-    headers.length === EXPECTED_HEADERS.length &&
-    EXPECTED_HEADERS.every((header, index) => headers[index] === header)
-  if (!headerValid) throw new Error(`Invalid header. Expected: ${EXPECTED_HEADERS.join(';')}`)
+  const headerIndex = new Map<HeaderName, number>()
+  for (let i = 0; i < headers.length; i += 1) {
+    const header = headers[i] as HeaderName
+    if (EXPECTED_HEADERS.includes(header)) headerIndex.set(header, i)
+  }
+  const availableHeaders = new Set(Array.from(headerIndex.keys()))
+  if (!availableHeaders.has('Keyword')) {
+    throw new Error('Invalid header. "Keyword" column is required.')
+  }
 
-  if (lines.length === 1) return []
+  if (lines.length === 1) return { rows: [], availableHeaders }
 
-  return lines.slice(1).map((line, rowIndex) => {
+  const rows = lines.slice(1).map((line, rowIndex) => {
     const lineNumber = rowIndex + 2
     const cols = line.split(';')
-    if (cols.length !== EXPECTED_HEADERS.length) {
-      throw new Error(`Line ${lineNumber}: expected ${EXPECTED_HEADERS.length} columns, got ${cols.length}`)
+    const read = (header: HeaderName): string | undefined => {
+      const idx = headerIndex.get(header)
+      return idx == null ? undefined : cols[idx]
     }
-    const trends = parseFloatList(cols[5], 'Trends', lineNumber)
-    if (trends.length !== 12) throw new Error(`Line ${lineNumber}: Trends must have exactly 12 values`)
+    const trendsRaw = read('Trends')
+    const trends = trendsRaw != null ? parseFloatList(trendsRaw, 'Trends', lineNumber) : []
+    if (trends.length && trends.length !== 12) {
+      throw new Error(`Line ${lineNumber}: Trends must have exactly 12 values`)
+    }
 
     return {
       id: rowIndex + 1,
-      keyword: cols[0].trim(),
-      searchVolume: parseNumber(cols[1], 'Search Volume', lineNumber, true),
-      cpc: parseNumber(cols[2], 'CPC', lineNumber),
-      competition: parseNumber(cols[3], 'Competition', lineNumber),
-      numberOfResults: parseNumber(cols[4], 'Number of Results', lineNumber, true),
+      keyword: (read('Keyword') ?? '').trim(),
+      searchVolume: parseNumberOrNull(read('Search Volume'), 'Search Volume', lineNumber, true),
+      cpc: parseNumberOrNull(read('CPC'), 'CPC', lineNumber),
+      competition: parseNumberOrNull(read('Competition'), 'Competition', lineNumber),
+      numberOfResults: parseNumberOrNull(read('Number of Results'), 'Number of Results', lineNumber, true),
       trends: trends.map((value) => Math.max(0, Math.min(1, value))),
-      relatedRelevance: parseNumber(cols[6], 'Related Relevance', lineNumber),
-      serpFeatures: parseIntList(cols[7], 'Keywords SERP Features', lineNumber).sort((a, b) => a - b),
-      intentCodes: parseIntList(cols[8], 'Intent', lineNumber).sort((a, b) => a - b),
-      kd: parseNumber(cols[9], 'Keyword Difficulty Index', lineNumber, true)
+      relatedRelevance: parseNumberOrNull(read('Related Relevance'), 'Related Relevance', lineNumber),
+      serpFeatures: parseIntList(read('Keywords SERP Features') ?? '', 'Keywords SERP Features', lineNumber).sort(
+        (a, b) => a - b
+      ),
+      intentCodes: parseIntList(read('Intent') ?? '', 'Intent', lineNumber).sort((a, b) => a - b),
+      kd: parseNumberOrNull(read('Keyword Difficulty Index'), 'Keyword Difficulty Index', lineNumber, true)
     }
   })
+
+  return { rows, availableHeaders }
 }
 
-const rows = ref<KeywordRow[]>(parseSemrushText(DEMO_DATA))
+const initialParsed = parseSemrushText(DEMO_DATA)
+const rows = ref<KeywordRow[]>(initialParsed.rows)
+const availableHeaders = ref<Set<HeaderName>>(initialParsed.availableHeaders)
 const parsedRows = computed(() => rows.value)
 const selectedIds = reactive(new Set<number>())
 const selectedOnly = ref(false)
@@ -462,10 +493,13 @@ const intentMeta: Record<number, { short: string; title: string; cls: string }> 
 }
 
 const allKeywordCount = computed(() => parsedRows.value.length)
-const totalVolume = computed(() => parsedRows.value.reduce((sum, row) => sum + row.searchVolume, 0))
+const totalVolume = computed(() =>
+  parsedRows.value.reduce((sum, row) => sum + (row.searchVolume ?? 0), 0)
+)
 const avgKd = computed(() => {
-  if (!parsedRows.value.length) return 0
-  return Math.round(parsedRows.value.reduce((sum, row) => sum + row.kd, 0) / parsedRows.value.length)
+  const validRows = parsedRows.value.filter((row) => row.kd != null)
+  if (!validRows.length) return 0
+  return Math.round(validRows.reduce((sum, row) => sum + (row.kd ?? 0), 0) / validRows.length)
 })
 
 const featureStats = computed(() => {
@@ -494,6 +528,26 @@ const filteredRows = computed(() => {
 })
 
 const filteredCount = computed(() => filteredRows.value.length)
+const hasSearchVolume = computed(() => availableHeaders.value.has('Search Volume'))
+const hasIntent = computed(() => availableHeaders.value.has('Intent'))
+const hasTrends = computed(() => availableHeaders.value.has('Trends'))
+const hasKd = computed(() => availableHeaders.value.has('Keyword Difficulty Index'))
+const hasCpc = computed(() => availableHeaders.value.has('CPC'))
+const hasCompetition = computed(() => availableHeaders.value.has('Competition'))
+const hasSerpFeatures = computed(() => availableHeaders.value.has('Keywords SERP Features'))
+const hasResults = computed(() => availableHeaders.value.has('Number of Results'))
+const visibleColspan = computed(() => {
+  let count = 2 // checkbox + keyword
+  if (hasIntent.value) count += 1
+  if (hasSearchVolume.value) count += 1
+  if (hasTrends.value) count += 1
+  if (hasKd.value) count += 1
+  if (hasCpc.value) count += 1
+  if (hasCompetition.value) count += 1
+  if (hasSerpFeatures.value) count += 1
+  if (hasResults.value) count += 1
+  return count
+})
 
 const allFilteredSelected = computed(() => {
   if (!filteredRows.value.length) return false
@@ -511,21 +565,27 @@ function compareIntent(a: number[], b: number[]): number {
 }
 
 function compareRows(a: KeywordRow, b: KeywordRow): number {
+  const compareNullableNumber = (left: number | null, right: number | null): number => {
+    if (left == null && right == null) return 0
+    if (left == null) return -1
+    if (right == null) return 1
+    return left - right
+  }
   switch (sortKey.value) {
     case 'keyword':
       return a.keyword.localeCompare(b.keyword)
     case 'intent':
       return compareIntent(a.intentCodes, b.intentCodes)
     case 'volume':
-      return a.searchVolume - b.searchVolume
+      return compareNullableNumber(a.searchVolume, b.searchVolume)
     case 'kd':
-      return a.kd - b.kd
+      return compareNullableNumber(a.kd, b.kd)
     case 'cpc':
-      return a.cpc - b.cpc
+      return compareNullableNumber(a.cpc, b.cpc)
     case 'competition':
-      return a.competition - b.competition
+      return compareNullableNumber(a.competition, b.competition)
     case 'results':
-      return a.numberOfResults - b.numberOfResults
+      return compareNullableNumber(a.numberOfResults, b.numberOfResults)
     default:
       return 0
   }
@@ -566,7 +626,9 @@ function onFileChange(event: Event): void {
   file
     .text()
     .then((text) => {
-      rows.value = parseSemrushText(text)
+      const parsed = parseSemrushText(text)
+      rows.value = parsed.rows
+      availableHeaders.value = parsed.availableHeaders
       selectedIds.clear()
       selectedSerpFeatures.clear()
       keywordInput.value = ''
@@ -593,6 +655,21 @@ function clearSelection(): void {
 const intFormat = new Intl.NumberFormat('en-US')
 function formatNumber(value: number): string {
   return intFormat.format(value)
+}
+
+function formatCellNumber(value: number | null): string {
+  if (value == null) return '-'
+  return formatNumber(value)
+}
+
+function formatCellCompact(value: number | null): string {
+  if (value == null) return '-'
+  return formatCompact(value)
+}
+
+function formatCellFixed(value: number | null, digits = 2): string {
+  if (value == null) return '-'
+  return value.toFixed(digits)
 }
 
 function formatCompact(value: number): string {
@@ -727,10 +804,14 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
           />
           <div class="toolbar-stats">
             <span>All keywords: {{ formatNumber(allKeywordCount) }}</span>
-            <span>|</span>
-            <span>Total Volume: {{ formatCompact(totalVolume) }}</span>
-            <span>|</span>
-            <span>Avg KD: {{ avgKd }}%</span>
+            <template v-if="hasSearchVolume">
+              <span>|</span>
+              <span>Total Volume: {{ formatCompact(totalVolume) }}</span>
+            </template>
+            <template v-if="hasKd">
+              <span>|</span>
+              <span>Avg KD: {{ avgKd }}%</span>
+            </template>
             <span>|</span>
             <span>Filtered: {{ formatNumber(filteredCount) }}</span>
             <template v-if="selectedIds.size">
@@ -760,7 +841,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-intent center">
+                <th v-if="hasIntent" class="w-intent center">
                   <button class="th-btn" @click="setSort('intent')">
                     Intent
                     <span class="sort-icon" :class="{ active: isSortActive('intent') }">
@@ -768,7 +849,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-volume right">
+                <th v-if="hasSearchVolume" class="w-volume right">
                   <button class="th-btn" @click="setSort('volume')">
                     Volume
                     <span class="sort-icon" :class="{ active: isSortActive('volume') }">
@@ -776,8 +857,8 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-trend center">Trend</th>
-                <th class="w-kd right">
+                <th v-if="hasTrends" class="w-trend center">Trend</th>
+                <th v-if="hasKd" class="w-kd right">
                   <button class="th-btn" @click="setSort('kd')">
                     KD %
                     <span class="sort-icon" :class="{ active: isSortActive('kd') }">
@@ -785,7 +866,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-cpc right">
+                <th v-if="hasCpc" class="w-cpc right">
                   <button class="th-btn" @click="setSort('cpc')">
                     CPC (AUD)
                     <span class="sort-icon" :class="{ active: isSortActive('cpc') }">
@@ -793,7 +874,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-com right">
+                <th v-if="hasCompetition" class="w-com right">
                   <button class="th-btn" @click="setSort('competition')">
                     Com.
                     <span class="sort-icon" :class="{ active: isSortActive('competition') }">
@@ -801,8 +882,8 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </button>
                 </th>
-                <th class="w-serp">SERP Features</th>
-                <th class="w-results right">
+                <th v-if="hasSerpFeatures" class="w-serp">SERP Features</th>
+                <th v-if="hasResults" class="w-results right">
                   <button class="th-btn" @click="setSort('results')">
                     Results
                     <span class="sort-icon" :class="{ active: isSortActive('results') }">
@@ -829,7 +910,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                   <span class="expand-icon">+</span>
                   <a href="#" class="keyword-link" @click.prevent>{{ row.keyword }}</a>
                 </td>
-                <td class="w-intent center">
+                <td v-if="hasIntent" class="w-intent center">
                   <div class="intent-list">
                     <span
                       v-for="code in row.intentCodes"
@@ -841,17 +922,20 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </div>
                 </td>
-                <td class="w-volume right">{{ formatNumber(row.searchVolume) }}</td>
-                <td class="w-trend center">
-                  <svg width="70" height="20" viewBox="0 0 70 20" class="sparkline" aria-hidden="true">
+                <td v-if="hasSearchVolume" class="w-volume right">{{ formatCellNumber(row.searchVolume) }}</td>
+                <td v-if="hasTrends" class="w-trend center">
+                  <span v-if="!row.trends.length">-</span>
+                  <svg v-else width="70" height="20" viewBox="0 0 70 20" class="sparkline" aria-hidden="true">
                     <line x1="0" y1="10" x2="70" y2="10" />
                     <polyline :points="sparklinePoints(row.trends)" />
                   </svg>
                 </td>
-                <td class="w-kd right"><span>{{ row.kd }}</span><span :class="kdClass(row.kd)" /></td>
-                <td class="w-cpc right">{{ row.cpc.toFixed(2) }}</td>
-                <td class="w-com right">{{ row.competition.toFixed(2) }}</td>
-                <td class="w-serp">
+                <td v-if="hasKd" class="w-kd right">
+                  <span>{{ row.kd ?? '-' }}</span><span v-if="row.kd != null" :class="kdClass(row.kd)" />
+                </td>
+                <td v-if="hasCpc" class="w-cpc right">{{ formatCellFixed(row.cpc) }}</td>
+                <td v-if="hasCompetition" class="w-com right">{{ formatCellFixed(row.competition) }}</td>
+                <td v-if="hasSerpFeatures" class="w-serp">
                   <div class="serp-list">
                     <span
                       v-for="featureId in rowSerpVisible(row.serpFeatures)"
@@ -872,10 +956,10 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
                     </span>
                   </div>
                 </td>
-                <td class="w-results right">{{ formatCompact(row.numberOfResults) }}</td>
+                <td v-if="hasResults" class="w-results right">{{ formatCellCompact(row.numberOfResults) }}</td>
               </tr>
               <tr v-if="!visibleRows.length && !parseError">
-                <td colspan="10" class="empty-state">
+                <td :colspan="visibleColspan" class="empty-state">
                   {{ allKeywordCount === 0 ? 'No data loaded yet.' : 'No keywords match your filters.' }}
                 </td>
               </tr>
@@ -884,7 +968,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
         </div>
       </div>
 
-      <aside class="sidebar">
+      <aside v-if="hasSerpFeatures" class="sidebar">
         <div class="sidebar-head">
           <h3>SERP Features</h3>
           <span>Unique features: {{ uniqueFeatureCount }}</span>
