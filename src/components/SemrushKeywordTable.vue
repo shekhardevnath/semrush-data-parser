@@ -486,8 +486,8 @@ const sortDir = ref<SortDir>('desc')
 const showSaveNotesModal = ref(false)
 
 const intentMeta: Record<number, { short: string; title: string; cls: string }> = {
-  0: { short: 'I', title: 'Informational', cls: 'intent intent-i' },
-  1: { short: 'C', title: 'Commercial', cls: 'intent intent-c' },
+  0: { short: 'C', title: 'Commercial', cls: 'intent intent-c' },
+  1: { short: 'I', title: 'Informational', cls: 'intent intent-i' },
   2: { short: 'N', title: 'Navigational', cls: 'intent intent-n' },
   3: { short: 'T', title: 'Transactional', cls: 'intent intent-t' }
 }
