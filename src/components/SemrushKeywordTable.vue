@@ -602,6 +602,7 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
   background: #f8fafc;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #1f2d3d;
+  margin: 0;
   padding: 12px;
 }
 
