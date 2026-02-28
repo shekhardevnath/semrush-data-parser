@@ -375,8 +375,8 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
         <input v-model="selectedOnly" type="checkbox" />
         Selected only
       </label>
-      <button class="clear-btn" @click="showSaveNotesModal = true">Save notes</button>
       <button class="clear-btn" @click="clearFilters">Clear filters</button>
+      <button class="save-notes-btn" @click="showSaveNotesModal = true">Save notes</button>
     </div>
 
     <div v-if="selectedSerpFeatures.size" class="chips">
@@ -654,6 +654,26 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
 .clear-btn:hover,
 .link-btn:hover {
   background: #f1f5f9;
+}
+
+.clear-btn {
+  border-color: #f59e0b;
+}
+
+.save-notes-btn {
+  margin-left: auto;
+  border: 1px solid #059669;
+  background: #10b981;
+  color: #ffffff;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-notes-btn:hover {
+  background: #059669;
 }
 
 .chip {
@@ -1030,6 +1050,10 @@ function onNotesSaved(payload: { filename: string; fileSize: number }): void {
 }
 
 @media (max-width: 820px) {
+  .save-notes-btn {
+    margin-left: 0;
+  }
+
   .toolbar {
     flex-direction: column;
     align-items: flex-start;
