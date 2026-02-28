@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import SaveTextModal from './SaveTextModal.vue'
 
 type SortKey = 'keyword' | 'intent' | 'volume' | 'kd' | 'cpc' | 'competition' | 'results'
 type SortDir = 'asc' | 'desc'
@@ -139,6 +140,7 @@ const parseError = ref('')
 const loadedFileName = ref('Demo data')
 const sortKey = ref<SortKey>('volume')
 const sortDir = ref<SortDir>('desc')
+const showSaveNotesModal = ref(false)
 
 const intentMeta: Record<number, { short: string; title: string; cls: string }> = {
   0: { short: 'I', title: 'Informational', cls: 'intent intent-i' },
@@ -355,6 +357,10 @@ function clearFilters(): void {
   selectedOnly.value = false
   selectedSerpFeatures.clear()
 }
+
+function onNotesSaved(payload: { filename: string; fileSize: number }): void {
+  console.log('Notes saved:', payload)
+}
 </script>
 
 <template>
@@ -369,6 +375,7 @@ function clearFilters(): void {
         <input v-model="selectedOnly" type="checkbox" />
         Selected only
       </label>
+      <button class="clear-btn" @click="showSaveNotesModal = true">Save notes</button>
       <button class="clear-btn" @click="clearFilters">Clear filters</button>
     </div>
 
@@ -577,6 +584,14 @@ function clearFilters(): void {
         <p v-else class="legend-empty">No SERP features found in the current dataset.</p>
       </aside>
     </div>
+
+    <SaveTextModal
+      v-model="showSaveNotesModal"
+      title="Save notes"
+      default-filename="semrush-notes.txt"
+      placeholder="Write notes for this keyword set..."
+      @saved="onNotesSaved"
+    />
   </section>
 </template>
 
